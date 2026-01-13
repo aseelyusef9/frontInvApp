@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Navigation from '@/components/Navigation';
@@ -17,18 +17,44 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ApiClient } from '@/lib/api';
 import { Invoice } from '@/types/invoice';
 import { toast } from 'sonner';
 
+type SortField = 'invoiceDate' | 'dueDate' | 'totalAmount' | 'vendorName';
+type SortOrder = 'asc' | 'desc';
+
 export default function InvoicesPage() {
   const [vendorName, setVendorName] = useState('');
+  const [invoiceId, setInvoiceId] = useState('');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchType, setSearchType] = useState<'vendor' | 'id'>('vendor');
+  
+  // Filtering state
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('invoiceDate');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
   const router = useRouter();
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearchByVendor = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!vendorName.trim()) {
@@ -38,6 +64,8 @@ export default function InvoicesPage() {
 
     setIsLoading(true);
     setHasSearched(true);
+    setSearchType('vendor');
+    setCurrentPage(1); // Reset to first page on new search
 
     try {
       const results = await ApiClient.getInvoicesByVendor(vendorName);
@@ -53,6 +81,102 @@ export default function InvoicesPage() {
       setInvoices([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSearchById = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!invoiceId.trim()) {
+      toast.error('Please enter an invoice ID');
+      return;
+    }
+
+    setIsLoading(true);
+    setHasSearched(true);
+    setSearchType('id');
+    setCurrentPage(1); // Reset to first page on new search
+
+    try {
+      const result = await ApiClient.getInvoiceById(invoiceId);
+      setInvoices([result]);
+      toast.success('Invoice found');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Invoice not found');
+      setInvoices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Filter, sort, and paginate invoices
+  const processedInvoices = useMemo(() => {
+    let filtered = [...invoices];
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(
+        (invoice) => invoice.status?.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+
+    // Apply date range filter
+    if (startDate) {
+      filtered = filtered.filter(
+        (invoice) => new Date(invoice.invoiceDate) >= new Date(startDate)
+      );
+    }
+    if (endDate) {
+      filtered = filtered.filter(
+        (invoice) => new Date(invoice.invoiceDate) <= new Date(endDate)
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      // Handle date and amount comparisons
+      if (sortField === 'invoiceDate' || sortField === 'dueDate') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      } else if (sortField === 'totalAmount') {
+        aValue = Number(aValue);
+        bValue = Number(bValue);
+      } else {
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [invoices, statusFilter, startDate, endDate, sortField, sortOrder]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(processedInvoices.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedInvoices = processedInvoices.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const handleFilterChange = () => {
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle sort order if clicking the same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
     }
   };
 
@@ -106,35 +230,64 @@ export default function InvoicesPage() {
               </p>
             </div>
 
-            {/* Search Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Search by Vendor</CardTitle>
-                <CardDescription>
-                  Enter a vendor name to retrieve associated invoices
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSearch} className="flex gap-4">
-                  <div className="flex-1">
-                    <Label htmlFor="vendorName" className="sr-only">
-                      Vendor Name
-                    </Label>
-                    <Input
-                      id="vendorName"
-                      type="text"
-                      placeholder="Enter vendor name..."
-                      value={vendorName}
-                      onChange={(e) => setVendorName(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Searching...' : 'Search'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            {/* Search Cards */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Search by Vendor */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Search by Vendor</CardTitle>
+                  <CardDescription>
+                    Enter a vendor name to retrieve associated invoices
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSearchByVendor} className="space-y-4">
+                    <div>
+                      <Label htmlFor="vendorName">Vendor Name</Label>
+                      <Input
+                        id="vendorName"
+                        type="text"
+                        placeholder="Enter vendor name..."
+                        value={vendorName}
+                        onChange={(e) => setVendorName(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <Button type="submit" disabled={isLoading} className="w-full">
+                      {isLoading && searchType === 'vendor' ? 'Searching...' : 'Search by Vendor'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Search by Invoice ID */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Search by Invoice ID</CardTitle>
+                  <CardDescription>
+                    Enter an invoice ID to view specific invoice
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSearchById} className="space-y-4">
+                    <div>
+                      <Label htmlFor="invoiceId">Invoice ID</Label>
+                      <Input
+                        id="invoiceId"
+                        type="text"
+                        placeholder="Enter invoice ID..."
+                        value={invoiceId}
+                        onChange={(e) => setInvoiceId(e.target.value)}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <Button type="submit" disabled={isLoading} className="w-full">
+                      {isLoading && searchType === 'id' ? 'Searching...' : 'Search by ID'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Results */}
             {hasSearched && (
@@ -142,27 +295,173 @@ export default function InvoicesPage() {
                 <CardHeader>
                   <CardTitle>Search Results</CardTitle>
                   <CardDescription>
-                    {invoices.length > 0
-                      ? `Showing ${invoices.length} invoice(s) for "${vendorName}"`
-                      : `No invoices found for "${vendorName}"`}
+                    {processedInvoices.length > 0
+                      ? `Showing ${paginatedInvoices.length} of ${processedInvoices.length} invoice(s)${searchType === 'vendor' ? ` for "${vendorName}"` : ''}`
+                      : searchType === 'vendor' 
+                        ? `No invoices found for "${vendorName}"`
+                        : `No invoice found with ID "${invoiceId}"`}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  {invoices.length > 0 ? (
+                <CardContent className="space-y-4">
+                  {/* Filters and Controls */}
+                  {invoices.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-4">
+                        {/* Status Filter */}
+                        <div>
+                          <Label htmlFor="statusFilter">Status</Label>
+                          <Select
+                            value={statusFilter}
+                            onValueChange={(value) => {
+                              setStatusFilter(value);
+                              handleFilterChange();
+                            }}
+                          >
+                            <SelectTrigger id="statusFilter">
+                              <SelectValue placeholder="All Statuses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Statuses</SelectItem>
+                              <SelectItem value="paid">Paid</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="overdue">Overdue</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Start Date Filter */}
+                        <div>
+                          <Label htmlFor="startDate">Start Date</Label>
+                          <Input
+                            id="startDate"
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => {
+                              setStartDate(e.target.value);
+                              handleFilterChange();
+                            }}
+                          />
+                        </div>
+
+                        {/* End Date Filter */}
+                        <div>
+                          <Label htmlFor="endDate">End Date</Label>
+                          <Input
+                            id="endDate"
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => {
+                              setEndDate(e.target.value);
+                              handleFilterChange();
+                            }}
+                          />
+                        </div>
+
+                        {/* Items Per Page */}
+                        <div>
+                          <Label htmlFor="itemsPerPage">Items Per Page</Label>
+                          <Select
+                            value={itemsPerPage.toString()}
+                            onValueChange={(value) => {
+                              setItemsPerPage(Number(value));
+                              setCurrentPage(1);
+                            }}
+                          >
+                            <SelectTrigger id="itemsPerPage">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5</SelectItem>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="20">20</SelectItem>
+                              <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Clear Filters */}
+                      {(statusFilter !== 'all' || startDate || endDate) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setStatusFilter('all');
+                            setStartDate('');
+                            setEndDate('');
+                            setCurrentPage(1);
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Table */}
+                  {paginatedInvoices.length > 0 ? (
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Invoice #</TableHead>
-                            <TableHead>Vendor</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead>Amount</TableHead>
+                            <TableHead
+                              className="cursor-pointer hover:bg-stone-100"
+                              onClick={() => handleSortChange('vendorName')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Vendor
+                                {sortField === 'vendorName' && (
+                                  <span className="text-xs">
+                                    {sortOrder === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead
+                              className="cursor-pointer hover:bg-stone-100"
+                              onClick={() => handleSortChange('invoiceDate')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Date
+                                {sortField === 'invoiceDate' && (
+                                  <span className="text-xs">
+                                    {sortOrder === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead
+                              className="cursor-pointer hover:bg-stone-100"
+                              onClick={() => handleSortChange('dueDate')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Due Date
+                                {sortField === 'dueDate' && (
+                                  <span className="text-xs">
+                                    {sortOrder === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead
+                              className="cursor-pointer hover:bg-stone-100"
+                              onClick={() => handleSortChange('totalAmount')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Amount
+                                {sortField === 'totalAmount' && (
+                                  <span className="text-xs">
+                                    {sortOrder === 'asc' ? '↑' : '↓'}
+                                  </span>
+                                )}
+                              </div>
+                            </TableHead>
                             <TableHead>Status</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {invoices.map((invoice) => (
+                          {paginatedInvoices.map((invoice) => (
                             <TableRow
                               key={invoice.invoiceId}
                               onClick={() => handleRowClick(invoice.invoiceId)}
@@ -209,8 +508,64 @@ export default function InvoicesPage() {
                         No invoices found
                       </h3>
                       <p className="mt-1 text-sm text-stone-500">
-                        Try searching with a different vendor name
+                        {statusFilter !== 'all' || startDate || endDate
+                          ? 'Try adjusting your filters'
+                          : 'Try searching with a different vendor name'}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  {processedInvoices.length > 0 && totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t pt-4">
+                      <div className="text-sm text-stone-600">
+                        Showing {startIndex + 1} to {Math.min(endIndex, processedInvoices.length)} of{' '}
+                        {processedInvoices.length} results
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNumber;
+                            if (totalPages <= 5) {
+                              pageNumber = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNumber = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNumber = totalPages - 4 + i;
+                            } else {
+                              pageNumber = currentPage - 2 + i;
+                            }
+                            
+                            return (
+                              <Button
+                                key={pageNumber}
+                                variant={currentPage === pageNumber ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setCurrentPage(pageNumber)}
+                                className="w-10"
+                              >
+                                {pageNumber}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>

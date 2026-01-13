@@ -126,39 +126,47 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold">
-                    1
+                <Link href="/upload">
+                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer group">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold group-hover:bg-stone-700">
+                      1
+                    </div>
+                    <div>
+                      <h3 className="font-semibold group-hover:text-stone-900">Upload an Invoice</h3>
+                      <p className="text-sm text-stone-600">
+                        Upload PDF or image files containing invoice data. The system will automatically extract key information.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Upload an Invoice</h3>
-                    <p className="text-sm text-stone-600">
-                      Upload PDF or image files containing invoice data. The system will automatically extract key information.
-                    </p>
+                </Link>
+                
+                <Link href="/invoices">
+                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer group">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold group-hover:bg-stone-700">
+                      2
+                    </div>
+                    <div>
+                      <h3 className="font-semibold group-hover:text-stone-900">Search by Vendor</h3>
+                      <p className="text-sm text-stone-600">
+                        Use the Invoices page to search for invoices by vendor name and view detailed information.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold">
-                    2
+                </Link>
+                
+                <Link href="/invoices">
+                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer group">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold group-hover:bg-stone-700">
+                      3
+                    </div>
+                    <div>
+                      <h3 className="font-semibold group-hover:text-stone-900">Review and Edit</h3>
+                      <p className="text-sm text-stone-600">
+                        Click on any invoice to view details and make necessary edits to the extracted data.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">Search by Vendor</h3>
-                    <p className="text-sm text-stone-600">
-                      Use the Invoices page to search for invoices by vendor name and view detailed information.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-900 text-white text-sm font-bold">
-                    3
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Review and Edit</h3>
-                    <p className="text-sm text-stone-600">
-                      Click on any invoice to view details and make necessary edits to the extracted data.
-                    </p>
-                  </div>
-                </div>
+                </Link>
               </CardContent>
             </Card>
           </div>
