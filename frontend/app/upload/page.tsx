@@ -25,15 +25,27 @@ export default function UploadPage() {
   ];
 
   const validateFile = (file: File): boolean => {
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload PDF or image files.');
+    console.log('Validating file:', file.name, 'Type:', file.type, 'Size:', file.size);
+    
+    // Check file extension as fallback for PDF
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = allowedTypes.includes(file.type);
+    
+    if (!isPDF && !isImage) {
+      toast.error('Invalid file type. Please upload PDF files only (backend restriction).');
       return false;
     }
+    
     if (file.size > 10 * 1024 * 1024) {
       // 10MB limit
       toast.error('File size exceeds 10MB limit.');
       return false;
     }
+    
+    if (!isPDF) {
+      toast.warning('Note: Backend only accepts PDF files. Image upload may fail.');
+    }
+    
     return true;
   };
 
@@ -70,10 +82,12 @@ export default function UploadPage() {
       return;
     }
 
+    console.log('Starting upload for file:', file.name, 'Size:', file.size, 'Type:', file.type);
     setIsUploading(true);
 
     try {
       const response = await ApiClient.extractInvoice(file);
+      console.log('Upload successful, invoice ID:', response.invoiceId);
       toast.success('Invoice extracted successfully!');
       
       // Navigate to the invoice details page
@@ -81,7 +95,9 @@ export default function UploadPage() {
         router.push(`/invoice/${response.invoiceId}`);
       }, 500);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to upload invoice');
+      console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload invoice';
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
     }
