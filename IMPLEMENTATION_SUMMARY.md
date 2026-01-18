@@ -7,6 +7,7 @@ I've successfully built a complete Next.js frontend application based on the App
 ## 📁 Project Structure
 
 ```
+
 frontend/
 ├── app/
 │   ├── layout.tsx              # Root layout with AuthProvider and Toaster
