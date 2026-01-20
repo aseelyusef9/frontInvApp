@@ -10,6 +10,7 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
 FIXTURES = Path(__file__).parent / "fixtures"
 SHOW_UI = bool(os.environ.get("SHOW_UI", ""))
 
+
 def setup_sample_files():
     FIXTURES.mkdir(exist_ok=True)
 
