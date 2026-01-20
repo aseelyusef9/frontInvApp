@@ -1,0 +1,59 @@
+# .github/workflows/ui-testing.yaml
+name: Playwright UI Tests
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - playwrightCI
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  playwright-matrix-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox]
+        resolution: 
+          - { name: 'desktop', width: 1920, height: 1080 }
+          - { name: 'tablet', width: 768, height: 1024 }
+          - { name: 'mobile', width: 375, height: 667 }
+      fail-fast: false  # Continue other jobs even if one fails
+    
+    name: Test ${{ matrix.browser }} - ${{ matrix.resolution.name }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      working-directory: ./test
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Playwright browsers
+      run: |
+        python -m playwright install --with-deps ${{ matrix.browser }}
+        
+    - name: Run Playwright tests (no app needed - just config tests)
+      env:
+        HEADLESS: true
+        BROWSER: ${{ matrix.browser }}
+        SCREEN_WIDTH: ${{ matrix.resolution.width }}
+        SCREEN_HEIGHT: ${{ matrix.resolution.height }}
+        APP_URL: http://localhost:3000
+        TEST_NAME: ${{ matrix.browser }}-${{ matrix.resolution.name }}
+      run: |
+        cd test
+        python -m pytest test_matrix_config.py -v --tb=short
