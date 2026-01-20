@@ -35,8 +35,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1  # Fetch only the latest commit to speed up the checkout process
-        repository: your-username/InvParserUI  # Replace with your UI testing repo
+        fetch-depth: 1  
+        repository: Sara-ashmoz/frontInvApp 
       
     - name: Set up Python
       uses: actions/setup-python@v4
