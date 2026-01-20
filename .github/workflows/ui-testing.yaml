@@ -57,4 +57,4 @@ jobs:
         HEADLESS: true
         BASE_URL: https://sapindaceous-chagrinedly-camilla.ngrok-free.dev
       run: |
-        pytest tests/ -v
+        pytest test/ -v
